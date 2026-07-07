@@ -23,6 +23,7 @@ function MyHandler.new(formatter)
             extra.asctime = os.date(self.formatter.datefmt)
         end
         local formatted = self.formatter.fmt
+        formatted = formatted:gsub("{message}", tostring(message))
         for k, v in pairs(extra) do
             formatted = formatted:gsub("{" .. k .. "}", tostring(v))
         end
