@@ -95,6 +95,7 @@ logger["TerminalHandler"] = function(formatter,terminal)
     function self:format(message,extra)
         if not extra.asctime then extra.asctime = os.date(self.formatter.datefmt) end
         local formatted = self.formatter.fmt
+        formatted = formatted:gsub("{message}", tostring(message))
         for key, value in pairs(extra) do
             formatted = formatted:gsub("{"..key.."}", tostring(value))
         end
@@ -187,6 +188,7 @@ logger["ColoredTerminalHandler"] = function(formatter, terminal)
         end
 
         local formatted = self.formatter.fmt
+        formatted = formatted:gsub("{message}", tostring(message))
         for key, value in pairs(extra) do
             formatted = formatted:gsub("{" .. key .. "}", tostring(value))
         end
@@ -242,6 +244,7 @@ logger["FileHandler"] = function(formatter,filename,mode,delay)
     function self:format(message,extra)
         if not extra.asctime then extra.asctime = os.date(self.formatter.datefmt) end
         local formatted = self.formatter.fmt
+        formatted = formatted:gsub("{message}", tostring(message))
         for key, value in pairs(extra) do
             formatted = formatted:gsub("{"..key.."}", tostring(value))
         end
@@ -295,6 +298,7 @@ logger["RotatingFileHandler"] = function(formatter,filename,maxByte,backupCount,
     function self:format(message,extra)
         if not extra.asctime then extra.asctime = os.date(self.formatter.datefmt) end
         local formatted = self.formatter.fmt
+        formatted = formatted:gsub("{message}", tostring(message))
         for key, value in pairs(extra) do
             formatted = formatted:gsub("{"..key.."}", tostring(value))
         end
@@ -466,6 +470,7 @@ logger["TimedRotatingFileHandler"] = function(
     function self:format(message, extra)
         if not extra.asctime then extra.asctime = os.date(self.formatter.datefmt) end
         local formatted = self.formatter.fmt
+        formatted = formatted:gsub("{message}", tostring(message))
         for k, v in pairs(extra) do
             formatted = formatted:gsub("{"..k.."}", tostring(v))
         end
@@ -502,6 +507,7 @@ logger["WebsocketHandler"] = function(formatter,websocket)
     function self:format(message,extra)
         if not extra.asctime then extra.asctime = os.date(self.formatter.datefmt) end
         local formatted = self.formatter.fmt
+        formatted = formatted:gsub("{message}", tostring(message))
         for key, value in pairs(extra) do
             formatted = formatted:gsub("{"..key.."}", tostring(value))
         end
@@ -556,6 +562,7 @@ logger["ModemHandler"] = function(formatter,modem,channel)
     function self:format(message,extra)
         if not extra.asctime then extra.asctime = os.date(self.formatter.datefmt) end
         local formatted = self.formatter.fmt
+        formatted = formatted:gsub("{message}", tostring(message))
         for key, value in pairs(extra) do
             formatted = formatted:gsub("{"..key.."}", tostring(value))
         end
@@ -656,7 +663,6 @@ logger["new"] = function(name,RemoveDefaultHandle)
     --- Core logging function.
     -- @tparam string msg The message
     -- @tparam table level Log level
-    -- @tparam[opt] table extra Table for template variables
     function self:log(msg, level, extra, ...)
         if not msg then return end
         if not extra then extra = {} end
@@ -665,9 +671,9 @@ logger["new"] = function(name,RemoveDefaultHandle)
         if not loggername then extra.loggername = self.name end
         if not validLevel(level) then return end
         if level[1] < self.level[1] then return end
-
-        for i,v in pairs(self.handlers) do
-            v:handle(msg,extra,level)
+        
+        for _,handler in pairs(self.handlers) do
+            handler:handle(msg,extra,level)
         end
 
     end

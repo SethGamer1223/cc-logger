@@ -1,0 +1,50 @@
+site_name: cc-logger
+site_description: A logging library for CC:Tweaked inspired by the Python logging module
+repo_url: https://github.com/SethGamer1223/cc-logger
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette: 
+    scheme: slate
+    primary: indigo
+    accent: indigo
+  features:
+    - content.tabs.link
+    - content.code.copy
+    - navigation.sections
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Quick Start: quick-start.md
+  - Core Concepts:
+      - Architecture Overview: concepts/architecture.md
+      - Log Levels: concepts/levels.md
+      - The Formatter: concepts/formatter.md
+  - Handlers:
+      - Overview: handlers/index.md
+      - TerminalHandler: handlers/terminal.md
+      - ColoredTerminalHandler: handlers/colored-terminal.md
+      - FileHandler: handlers/file.md
+      - RotatingFileHandler: handlers/rotating-file.md
+      - TimedRotatingFileHandler: handlers/timed-rotating-file.md
+      - WebsocketHandler / RawWebsocketHandler: handlers/websocket.md
+      - ModemHandler / RawModemHandler: handlers/modem.md
+      - Writing a Custom Handler: handlers/custom.md
+  - API Reference:
+      - Logger: api/logger.md
+  - Cookbook:
+      - Multi-Handler Setups: cookbook/multi-handler.md
+      - Rotating Logs on Turtles: cookbook/rotating-turtle-logs.md
+  - Known Quirks & Limitations: known-quirks.md
+
+copyright: Copyright &copy; 2026 SethGamer1223  MIT License
