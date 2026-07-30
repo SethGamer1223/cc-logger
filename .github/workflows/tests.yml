@@ -20,11 +20,24 @@ jobs:
 
       - name: Download CraftOS-PC
         run: |
-          wget -O craftos \
+          wget -O craftos.AppImage \
             https://github.com/MCJack123/craftos2/releases/download/v2.8.3-luajit/CraftOS-PC.x86_64.AppImage
 
-          chmod +x craftos
-          sudo mv craftos /usr/local/bin/craftos
+          chmod +x craftos.AppImage
+
+          sudo mkdir -p /opt/craftos
+          sudo mv craftos.AppImage /opt/craftos/
+
+          sudo tee /usr/local/bin/craftos > /dev/null <<'EOF'
+#!/bin/bash
+exec /opt/craftos/craftos.AppImage "$@"
+EOF
+
+          sudo chmod +x /usr/local/bin/craftos
+
+      - name: Verify CraftOS installation
+        run: |
+          craftos --version
 
       - name: Run tests
         run: |
