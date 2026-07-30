@@ -1,0 +1,25 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    name: CC:Tweaked Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install CraftOS-PC
+        run: |
+          sudo add-apt-repository ppa:jackmacwindows/ppa
+          sudo apt update
+          sudo apt install -y craftos-pc
+
+
+      - name: Run tests
+        run: |
+          bash test/test.sh
