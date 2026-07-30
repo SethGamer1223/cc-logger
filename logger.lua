@@ -21,6 +21,19 @@
 --------------------------------------------------------------------------------
 
 
+local type, pairs, ipairs, tostring, select, setmetatable, assert, print = type, pairs, ipairs, tostring, select, setmetatable, assert, print
+
+local gmatch, format, upper = string.gmatch, string.format, string.upper
+local tinsert, tsort, tremove = table.insert, table.sort, table.remove
+local date, time, epoch = os.date, os.time, os.epoch
+local fopen, fexists, fdelete, fmove, flist, fgetDir, fgetName =
+    fs.open, fs.exists, fs.delete, fs.move, fs.list, fs.getDir, fs.getName
+local tcurrent, tgetSize, tgetCursorPos, tscroll, tsetCursorPos, twrite,
+      tgetTextColor, tgetBackgroundColor, tsetTextColor, tsetBackgroundColor =
+    term.current, term.getSize, term.getCursorPos, term.scroll, term.setCursorPos, term.write,
+    term.getTextColor, term.getBackgroundColor, term.setTextColor, term.setBackgroundColor
+local serializeJSON, unserializeJSON = textutils.serializeJSON, textutils.unserializeJSON
+local colors = colors
 
 local logger = {
     DEBUG = {1, "DEBUG"},
@@ -38,7 +51,7 @@ local function istype(object,expected)
     end
 end
 
-function copytemplate(original)
+local function copytemplate(original)
     local copy = {}
     setmetatable(copy, {__index = original})
 
@@ -49,13 +62,13 @@ end
 
 
 
-function validLevel(level)
+local function validLevel(level)
     return type(level) == "table" and
            type(level[1]) == "number" and
            type(level[2]) == "string"
 end
 
-local Formatter = {
+local defaultFormatter = {
     fmt = "[{loggername}] {asctime} [{level}] {message}",
     datefmt = "%Y/%m/%e %H:%M:%S",
     colors = {
@@ -78,22 +91,22 @@ local Formatter = {
 }
 --- Creates a handler that outputs to the ComputerCraft terminal.
 --- @param formatter table|nil Optional custom formatter object
---- @param terminal table|nil Optional terminal object (defaults to term.current())
+--- @param terminal table|nil Optional terminal object (defaults to tcurrent())
 --- @return table Handler object
 
 logger["TerminalHandler"] = function(formatter,terminal)
     local self = {}
     if not terminal then
-        self.term = term.current()
+        self.term = tcurrent()
     else
         self.term = terminal
     end
 
-    self.formatter = formatter or copytemplate(Formatter)
+    self.formatter = formatter or copytemplate(defaultFormatter)
 
 
     function self:format(message,extra)
-        if not extra.asctime then extra.asctime = os.date(self.formatter.datefmt) end
+        if not extra.asctime then extra.asctime = date(self.formatter.datefmt) end
         local formatted = self.formatter.fmt
         formatted = formatted:gsub("{message}", tostring(message))
         for key, value in pairs(extra) do
@@ -110,32 +123,32 @@ logger["TerminalHandler"] = function(formatter,terminal)
 
 
     function self:addTo(logger)
-        table.insert(logger.handlers, self)
+        tinsert(logger.handlers, self)
     end
 
     return self
 end
 local function writeLine(term, text)
-    local w, h = term.getSize()
+    local w, h = tgetSize()
 
     local function newLine()
-        local _, y = term.getCursorPos()
+        local _, y = tgetCursorPos()
         if y >= h then
-            term.scroll(1)
-            term.setCursorPos(1, h)
+            tscroll(1)
+            tsetCursorPos(1, h)
         else
-            term.setCursorPos(1, y + 1)
+            tsetCursorPos(1, y + 1)
         end
     end
 
-    for rawLine in string.gmatch(text, "([^\n]*)\n?") do
+    for rawLine in gmatch(text, "([^\n]*)\n?") do
         local words = {}
         for word in rawLine:gmatch("%S+") do
-            table.insert(words, word)
+            tinsert(words, word)
         end
 
         for i, word in ipairs(words) do
-            local x, y = term.getCursorPos()
+            local x, y = tgetCursorPos()
             local spaceLeft = w - x + 1
 
             local prefix = (x > 1) and " " or ""
@@ -147,7 +160,7 @@ local function writeLine(term, text)
             end
 
             while #word > 0 do
-                local x2 = select(1, term.getCursorPos())
+                local x2 = select(1, tgetCursorPos())
                 local room = w - x2 + 1
 
                 if room == 0 then
@@ -158,7 +171,7 @@ local function writeLine(term, text)
                 local chunk = word:sub(1, room)
                 word = word:sub(#chunk + 1)
 
-                term.write(prefix .. chunk)
+                twrite(prefix .. chunk)
                 prefix = ""
 
                 if #word > 0 then
@@ -179,12 +192,12 @@ end
 logger["ColoredTerminalHandler"] = function(formatter, terminal)
     local self = {}
 
-    self.term = terminal or term.current()
-    self.formatter = formatter or copytemplate(Formatter)
+    self.term = terminal or tcurrent()
+    self.formatter = formatter or copytemplate(defaultFormatter)
 
     function self:format(message, extra)
         if not extra.asctime then
-            extra.asctime = os.date(self.formatter.datefmt)
+            extra.asctime = date(self.formatter.datefmt)
         end
 
         local formatted = self.formatter.fmt
@@ -196,26 +209,26 @@ logger["ColoredTerminalHandler"] = function(formatter, terminal)
     end
 
     function self:handle(log, extra, level)
-        level = string.upper(level[2])
+        level = upper(level[2])
 
         local term = self.term
-        local oldText = term.getTextColor()
-        local oldBg = term.getBackgroundColor()
+        local oldText = tgetTextColor()
+        local oldBg = tgetBackgroundColor()
 
         local color = self.formatter.colors[level]
         if color then
-            if color.bg then term.setBackgroundColor(color.bg) end
-            if color.fg then term.setTextColor(color.fg) end
+            if color.bg then tsetBackgroundColor(color.bg) end
+            if color.fg then tsetTextColor(color.fg) end
         end
 
         writeLine(term,self:format(log, extra))
 
-        term.setTextColor(oldText)
-        term.setBackgroundColor(oldBg)
+        tsetTextColor(oldText)
+        tsetBackgroundColor(oldBg)
     end
 
     function self:addTo(logger)
-        table.insert(logger.handlers, self)
+        tinsert(logger.handlers, self)
     end
 
     return self
@@ -235,14 +248,14 @@ logger["FileHandler"] = function(formatter,filename,mode,delay)
         mode = "a"
     end
     if not delay then
-        self.file = fs.open(filename,mode)
+        self.file = fopen(filename,mode)
     end
 
-    self.formatter = formatter or copytemplate(Formatter)
+    self.formatter = formatter or copytemplate(defaultFormatter)
 
 
     function self:format(message,extra)
-        if not extra.asctime then extra.asctime = os.date(self.formatter.datefmt) end
+        if not extra.asctime then extra.asctime = date(self.formatter.datefmt) end
         local formatted = self.formatter.fmt
         formatted = formatted:gsub("{message}", tostring(message))
         for key, value in pairs(extra) do
@@ -253,14 +266,14 @@ logger["FileHandler"] = function(formatter,filename,mode,delay)
 
     function self:handle(log,extra)
         if not self.file then
-            self.file = fs.open(filename,mode)
+            self.file = fopen(filename,mode)
         end
         self.file.write(self:format(log,extra).."\n")
     end
 
 
     function self:addTo(logger)
-        table.insert(logger.handlers, self)
+        tinsert(logger.handlers, self)
     end
 
     return self
@@ -283,20 +296,20 @@ logger["RotatingFileHandler"] = function(formatter,filename,maxByte,backupCount,
     if not mode then
         mode = "a"
     end
-    if fs.exists(filename) then
-        local lengthReader = fs.open(filename,"r")
+    if fexists(filename) then
+        local lengthReader = fopen(filename,"r")
         self.length = lengthReader.seek("end")
         lengthReader.close()
     end
     if not delay then
-        self.file = fs.open(filename,mode)
+        self.file = fopen(filename,mode)
     end
 
-    self.formatter = formatter or copytemplate(Formatter)
+    self.formatter = formatter or copytemplate(defaultFormatter)
 
 
     function self:format(message,extra)
-        if not extra.asctime then extra.asctime = os.date(self.formatter.datefmt) end
+        if not extra.asctime then extra.asctime = date(self.formatter.datefmt) end
         local formatted = self.formatter.fmt
         formatted = formatted:gsub("{message}", tostring(message))
         for key, value in pairs(extra) do
@@ -309,7 +322,7 @@ logger["RotatingFileHandler"] = function(formatter,filename,maxByte,backupCount,
     function self:handle(log, extra)
 
         if not self.file then
-            self.file = fs.open(filename, mode)
+            self.file = fopen(filename, mode)
         end
 
         local formatted = self:format(log, extra) .. "\n"
@@ -322,25 +335,25 @@ logger["RotatingFileHandler"] = function(formatter,filename,maxByte,backupCount,
                 self.file = nil
 
                 local oldest = filename .. "." .. backupCount
-                if fs.exists(oldest) then
-                    fs.delete(oldest)
+                if fexists(oldest) then
+                    fdelete(oldest)
                 end
 
 
                 for i = backupCount - 1, 1, -1 do
                     local src = filename .. "." .. i
                     local dst = filename .. "." .. (i + 1)
-                    if fs.exists(src) then
-                        fs.move(src, dst)
+                    if fexists(src) then
+                        fmove(src, dst)
                     end
                 end
 
-                if fs.exists(filename) then
-                    fs.move(filename, filename .. ".1")
+                if fexists(filename) then
+                    fmove(filename, filename .. ".1")
                 end
 
 
-                self.file = fs.open(filename, mode)
+                self.file = fopen(filename, mode)
                 self.length = 0
             end
         end
@@ -350,7 +363,7 @@ logger["RotatingFileHandler"] = function(formatter,filename,maxByte,backupCount,
     end
 
     function self:addTo(logger)
-        table.insert(logger.handlers, self)
+        tinsert(logger.handlers, self)
     end
 
     return self
@@ -381,8 +394,8 @@ logger["TimedRotatingFileHandler"] = function(
     useUTC = useUTC or false
 
     local function now()
-        -- CC: os.time() returns days, but os.epoch("local") returns ms
-        return os.epoch("local")  -- milliseconds since epoch
+        -- CC: time() returns days, but epoch("local") returns ms
+        return epoch("local")  -- milliseconds since epoch
     end
 
     local function nextRollover(current)
@@ -398,28 +411,28 @@ logger["TimedRotatingFileHandler"] = function(
         end
 
         if when == "midnight" then
-            local t = textutils.unserializeJSON(textutils.serializeJSON({ os.date("*t") }))
+            local t = unserializeJSON(serializeJSON({ date("*t") }))
             t.hour, t.min, t.sec = 0, 0, 0
-            local base = os.time(t) * 1000
+            local base = time(t) * 1000
             local nextMid = base + 86400000
 
             return nextMid
         end
     end
 
-    self.formatter = formatter or copytemplate(Formatter)
+    self.formatter = formatter or copytemplate(defaultFormatter)
     self.rollover_at = nextRollover(now())
     self.file = nil
 
     local function openFile()
         if not self.file then
-            self.file = fs.open(filename, "a")
+            self.file = fopen(filename, "a")
         end
     end
 
     local function getTimestampString()
-        local t = useUTC and os.date("!*t") or os.date("*t")
-        return string.format("%04d-%02d-%02d_%02d-%02d-%02d",
+        local t = useUTC and date("!*t") or date("*t")
+        return format("%04d-%02d-%02d_%02d-%02d-%02d",
             t.year, t.month, t.day, t.hour, t.min, t.sec
         )
     end
@@ -432,34 +445,34 @@ logger["TimedRotatingFileHandler"] = function(
 
         local newname = filename .. "." .. getTimestampString()
 
-        if fs.exists(newname) then
-            fs.delete(newname)
+        if fexists(newname) then
+            fdelete(newname)
         end
 
-        if fs.exists(filename) then
-            fs.move(filename, newname)
+        if fexists(filename) then
+            fmove(filename, newname)
         end
 
         -- cleanup old backups
         if backupCount > 0 then
             -- gather all rotated files matching pattern
-            local dir = fs.getDir(filename)
+            local dir = fgetDir(filename)
             if dir == "" then dir = "/" end
-            local base = fs.getName(filename)
-            local list = fs.list(dir)
+            local base = fgetName(filename)
+            local list = flist(dir)
 
             local rotated = {}
             for _, f in ipairs(list) do
                 if f:match("^" .. base .. "%..+") then
-                    table.insert(rotated, dir .. "/" .. f)
+                    tinsert(rotated, dir .. "/" .. f)
                 end
             end
 
-            table.sort(rotated) -- chronological because timestamp is sortable
+            tsort(rotated) -- chronological because timestamp is sortable
 
             while #rotated > backupCount do
-                fs.delete(rotated[1])
-                table.remove(rotated, 1)
+                fdelete(rotated[1])
+                tremove(rotated, 1)
             end
         end
 
@@ -468,7 +481,7 @@ logger["TimedRotatingFileHandler"] = function(
     end
 
     function self:format(message, extra)
-        if not extra.asctime then extra.asctime = os.date(self.formatter.datefmt) end
+        if not extra.asctime then extra.asctime = date(self.formatter.datefmt) end
         local formatted = self.formatter.fmt
         formatted = formatted:gsub("{message}", tostring(message))
         for k, v in pairs(extra) do
@@ -491,7 +504,7 @@ logger["TimedRotatingFileHandler"] = function(
     end
 
     function self:addTo(logger)
-        table.insert(logger.handlers, self)
+        tinsert(logger.handlers, self)
     end
 
     return self
@@ -501,11 +514,11 @@ logger["WebsocketHandler"] = function(formatter,websocket)
     local self = {}
     self.websocket = websocket
 
-    self.formatter = formatter or copytemplate(Formatter)
+    self.formatter = formatter or copytemplate(defaultFormatter)
 
 
     function self:format(message,extra)
-        if not extra.asctime then extra.asctime = os.date(self.formatter.datefmt) end
+        if not extra.asctime then extra.asctime = date(self.formatter.datefmt) end
         local formatted = self.formatter.fmt
         formatted = formatted:gsub("{message}", tostring(message))
         for key, value in pairs(extra) do
@@ -521,7 +534,7 @@ logger["WebsocketHandler"] = function(formatter,websocket)
 
 
     function self:addTo(logger)
-        table.insert(logger.handlers, self)
+        tinsert(logger.handlers, self)
     end
 
     return self
@@ -537,12 +550,12 @@ logger["RawWebsocketHandler"] = function(formatter,websocket)
 
 
     function self:handle(log,extra)
-        self.websocket.send(textutils.serializeJSON({log,extra}))
+        self.websocket.send(serializeJSON({log,extra}))
     end
 
 
     function self:addTo(logger)
-        table.insert(logger.handlers, self)
+        tinsert(logger.handlers, self)
     end
 
     return self
@@ -556,11 +569,11 @@ logger["ModemHandler"] = function(formatter,modem,channel)
     local self = {}
     self.modem = modem
 
-    self.formatter = formatter or copytemplate(Formatter)
+    self.formatter = formatter or copytemplate(defaultFormatter)
 
 
     function self:format(message,extra)
-        if not extra.asctime then extra.asctime = os.date(self.formatter.datefmt) end
+        if not extra.asctime then extra.asctime = date(self.formatter.datefmt) end
         local formatted = self.formatter.fmt
         formatted = formatted:gsub("{message}", tostring(message))
         for key, value in pairs(extra) do
@@ -576,7 +589,7 @@ logger["ModemHandler"] = function(formatter,modem,channel)
 
 
     function self:addTo(logger)
-        table.insert(logger.handlers, self)
+        tinsert(logger.handlers, self)
     end
 
     return self
@@ -599,7 +612,7 @@ logger["RawModemHandler"] = function(formatter,modem,channel)
 
 
     function self:addTo(logger)
-        table.insert(logger.handlers, self)
+        tinsert(logger.handlers, self)
     end
 
     return self
@@ -607,7 +620,7 @@ end
 
 -- Enhanced Formatter implementation
 logger["Formatter"] = function(fmt,datefmt)
-    local formatter = copytemplate(Formatter)
+    local formatter = copytemplate(defaultFormatter)
     if fmt then formatter.fmt = fmt end
     if datefmt then formatter.datefmt = datefmt end
     return formatter
@@ -624,7 +637,7 @@ logger["new"] = function(name,RemoveDefaultHandle)
     self.level = logger.INFO  -- Default level
     self.handlers = {}
     if not RemoveDefaultHandle then
-        table.insert(self.handlers,logger.TerminalHandler(Formatter))
+        tinsert(self.handlers,logger.TerminalHandler(Formatter))
     end
     --- Set the minimum logging level.
     -- @tparam table level The level table (e.g. logger.DEBUG)
@@ -652,13 +665,13 @@ logger["new"] = function(name,RemoveDefaultHandle)
 
     function self:basicConfig(...)
         for i, v in pairs(...) do
-            config[i] = v
+            self[i] = v
         end
     end
     --- Add a custom handler to this logger.
     -- @tparam table handler The handler instance
     function self:addHandler(handler)
-        table.insert(self.handlers, handler)
+        tinsert(self.handlers, handler)
     end
     --- Core logging function.
     -- @tparam string msg The message
@@ -668,7 +681,7 @@ logger["new"] = function(name,RemoveDefaultHandle)
         if not extra then extra = {} end
         if not extra.message then extra.message = msg end
         if not extra.level then extra.level = level[2] end
-        if not loggername then extra.loggername = self.name end
+        if not extra.loggername then extra.loggername = self.name end
         if not validLevel(level) then return end
         if level[1] < self.level[1] then return end
         
