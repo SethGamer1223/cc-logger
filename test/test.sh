@@ -18,7 +18,8 @@ cp -r "$SOURCE_DIR/test" "$COMPUTER_DIR"
 # Run CraftOS-PC in headless mode (no GUI) and with the data directory set to $DATA_DIR.
 OUTPUT=$(craftos --headless --directory "$DATA_DIR" --exec \
     'shell.run("test/mcfly.lua test"); os.shutdown()' 2>&1)
-
+# give results
+echo $OUTPUT
 
 SUMMARY=$(echo "$OUTPUT" | tail -n 1)
 
