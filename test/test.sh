@@ -1,27 +1,29 @@
 #!/usr/bin/env bash
 set -euo pipefail
-# This script is CC0; feel free to remove this notice and modify the script however you like, with or without attribution.
+# This script is CC0; feel free to remove this notice and modify the script however you like.
 
-# Get the root of your Git repository, for copying files into the environment later.
 SOURCE_DIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 
-# Create a temporary directory for storing CraftOS-PC data.
 DATA_DIR="$(mktemp -d)"
 mkdir -p "$DATA_DIR/computer/0"
 COMPUTER_DIR="$DATA_DIR/computer/0"
 
-# Copy your library into the testing environment.
 cp "$SOURCE_DIR/logger.lua" "$COMPUTER_DIR"
-# And your tests!
 cp -r "$SOURCE_DIR/test" "$COMPUTER_DIR"
 
-# Run CraftOS-PC in headless mode (no GUI) and with the data directory set to $DATA_DIR.
 OUTPUT=$(craftos --headless --directory "$DATA_DIR" --exec \
     'shell.run("test/mcfly.lua test"); os.shutdown()' 2>&1)
-# give results
-echo $OUTPUT
 
-SUMMARY=$(echo "$OUTPUT" | tail -n 1)
+# Clean up CraftOS-PC terminal control sequences for CI logs
+CLEAN_OUTPUT=$(printf "%s" "$OUTPUT" \
+    | sed 's/\x1B\[[0-9;?]*[a-zA-Z]//g' \
+    | tr -d '\r')
+
+echo "$CLEAN_OUTPUT"
+
+SUMMARY=$(printf "%s\n" "$CLEAN_OUTPUT" \
+    | grep -E "Ran [0-9]+ test\(s\), of which [0-9]+ passed" \
+    | tail -n 1)
 
 if [[ "$SUMMARY" =~ Ran\ ([0-9]+)\ test\(s\),\ of\ which\ ([0-9]+)\ passed ]]; then
     TOTAL="${BASH_REMATCH[1]}"
