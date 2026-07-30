@@ -1,0 +1,27 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    name: CC:Tweaked Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download CraftOS-PC
+        run: |
+          wget -O craftos \
+            https://github.com/MCJack123/craftos2/releases/download/v2.8.3-luajit/CraftOS-PC.x86_64.AppImage
+
+          chmod +x craftos
+          sudo mv craftos /usr/local/bin/craftos
+
+      - name: Run tests
+        run: |
+          chmod +x run_tests.sh
+          ./run_tests.sh

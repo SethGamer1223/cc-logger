@@ -21,7 +21,7 @@
 --------------------------------------------------------------------------------
 
 
-local type, pairs, ipairs, tostring, select, setmetatable, assert, print = type, pairs, ipairs, tostring, select, setmetatable, assert, print
+local type, pairs, ipairs, tostring, select, setmetatable, assert  = type, pairs, ipairs, tostring, select, setmetatable, assert
 
 local gmatch, format, upper = string.gmatch, string.format, string.upper
 local tinsert, tsort, tremove = table.insert, table.sort, table.remove
@@ -42,14 +42,6 @@ local logger = {
     ERROR = {4, "ERROR"},
     CRITICAL = {5, "CRITICAL"}
 }
-
-local function istype(object,expected)
-    if type(object) == expected then
-        return true
-    else
-        return false
-    end
-end
 
 local function copytemplate(original)
     local copy = {}
@@ -89,11 +81,68 @@ local defaultFormatter = {
         }
     }
 }
+
+local function writeLine(term, text)
+    local w, h = term.getSize()
+
+    local function newLine()
+        local _, y = term.getCursorPos()
+        if y >= h then
+            term.scroll(1)
+            term.setCursorPos(1, h)
+        else
+            term.setCursorPos(1, y + 1)
+        end
+    end
+
+    for rawLine in gmatch(text, "([^\n]*)\n?") do
+        local words = {}
+        for word in rawLine:gmatch("%S+") do
+            tinsert(words, word)
+        end
+
+        for i, word in ipairs(words) do
+            local x, y = term.getCursorPos()
+            local spaceLeft = w - x + 1
+
+            local prefix = (x > 1) and " " or ""
+            local needed = #prefix + #word
+
+            if needed > spaceLeft then
+                newLine()
+                prefix = ""
+            end
+
+            while #word > 0 do
+                local x2 = select(1, term.getCursorPos())
+                local room = w - x2 + 1
+
+                if room == 0 then
+                    newLine()
+                    room = w
+                end
+
+                local chunk = word:sub(1, room)
+                word = word:sub(#chunk + 1)
+
+                term.write(prefix .. chunk)
+                prefix = ""
+
+                if #word > 0 then
+                    newLine()
+                end
+            end
+        end
+
+
+        newLine()
+    end
+end
+
 --- Creates a handler that outputs to the ComputerCraft terminal.
 --- @param formatter table|nil Optional custom formatter object
 --- @param terminal table|nil Optional terminal object (defaults to tcurrent())
 --- @return table Handler object
-
 logger["TerminalHandler"] = function(formatter,terminal)
     local self = {}
     if not terminal then
@@ -118,7 +167,7 @@ logger["TerminalHandler"] = function(formatter,terminal)
 
     function self:handle(log,extra)
 
-        print(self:format(log,extra).."\n")
+        writeLine(self.term, self:format(log,extra))
     end
 
 
@@ -128,67 +177,11 @@ logger["TerminalHandler"] = function(formatter,terminal)
 
     return self
 end
-local function writeLine(term, text)
-    local w, h = tgetSize()
 
-    local function newLine()
-        local _, y = tgetCursorPos()
-        if y >= h then
-            tscroll(1)
-            tsetCursorPos(1, h)
-        else
-            tsetCursorPos(1, y + 1)
-        end
-    end
-
-    for rawLine in gmatch(text, "([^\n]*)\n?") do
-        local words = {}
-        for word in rawLine:gmatch("%S+") do
-            tinsert(words, word)
-        end
-
-        for i, word in ipairs(words) do
-            local x, y = tgetCursorPos()
-            local spaceLeft = w - x + 1
-
-            local prefix = (x > 1) and " " or ""
-            local needed = #prefix + #word
-
-            if needed > spaceLeft then
-                newLine()
-                prefix = ""
-            end
-
-            while #word > 0 do
-                local x2 = select(1, tgetCursorPos())
-                local room = w - x2 + 1
-
-                if room == 0 then
-                    newLine()
-                    room = w
-                end
-
-                local chunk = word:sub(1, room)
-                word = word:sub(#chunk + 1)
-
-                twrite(prefix .. chunk)
-                prefix = ""
-
-                if #word > 0 then
-                    newLine()
-                end
-            end
-        end
-
-
-        newLine()
-    end
-end
 --- Creates a handler that outputs colored text to the terminal based on log level.
 --- @param formatter table|nil Optional custom formatter
 --- @param terminal table|nil Optional terminal object
 --- @return table Handler object
-
 logger["ColoredTerminalHandler"] = function(formatter, terminal)
     local self = {}
 
@@ -239,11 +232,10 @@ end
 --- @param mode string|nil File mode (default "a")
 --- @param delay boolean|nil If true, file is not opened until first log
 --- @return table Handler object
-
 logger["FileHandler"] = function(formatter,filename,mode,delay)
     local self = {}
-    assert(type(filename,"string")=="string","Filename must be a string")
-    assert(type(filename)=="string" or nil,"File opening mode must be provided or left nil for default (a)")
+    assert(type(filename)=="string","Filename must be a string")
+    assert(type(mode)=="string" or not mode,"File opening mode must be provided or left nil for default (a)")
     if not mode then
         mode = "a"
     end
@@ -269,6 +261,7 @@ logger["FileHandler"] = function(formatter,filename,mode,delay)
             self.file = fopen(filename,mode)
         end
         self.file.write(self:format(log,extra).."\n")
+        self.file.flush()
     end
 
 
@@ -287,12 +280,11 @@ end
 --- @param mode string|nil File mode
 --- @param delay boolean|nil If true, delays file opening
 --- @return table Handler object
-
 logger["RotatingFileHandler"] = function(formatter,filename,maxByte,backupCount,mode,delay)
     local self = {}
     self.length = 0
-    assert(type(filename,"string")=="string","Filename must be a string")
-    assert(type(filename)=="string" or nil,"File opening mode must be provided or left nil for default (a)")
+    assert(type(filename)=="string","Filename must be a string")
+    assert(type(mode)=="string" or not mode,"File opening mode must be provided or left nil for default (a)")
     if not mode then
         mode = "a"
     end
@@ -357,8 +349,8 @@ logger["RotatingFileHandler"] = function(formatter,filename,maxByte,backupCount,
                 self.length = 0
             end
         end
-
         self.file.write(formatted)
+        self.file.flush()
         self.length = self.length + length
     end
 
@@ -394,8 +386,7 @@ logger["TimedRotatingFileHandler"] = function(
     useUTC = useUTC or false
 
     local function now()
-        -- CC: time() returns days, but epoch("local") returns ms
-        return epoch("local")  -- milliseconds since epoch
+        if useUTC then return epoch("utc") else return epoch("local") end
     end
 
     local function nextRollover(current)
@@ -411,12 +402,11 @@ logger["TimedRotatingFileHandler"] = function(
         end
 
         if when == "midnight" then
-            local t = unserializeJSON(serializeJSON({ date("*t") }))
+            local t = textutils.unserializeJSON(textutils.serializeJSON({ os.date(useUTC and "!*t" or "*t") }))[1]
             t.hour, t.min, t.sec = 0, 0, 0
-            local base = time(t) * 1000
-            local nextMid = base + 86400000
+            t.day = t.day + 1
 
-            return nextMid
+            return time(t) * 1000
         end
     end
 
@@ -501,6 +491,7 @@ logger["TimedRotatingFileHandler"] = function(
 
         local formatted = self:format(log, extra) .. "\n"
         self.file.write(formatted)
+        self.file.flush()
     end
 
     function self:addTo(logger)
@@ -637,7 +628,7 @@ logger["new"] = function(name,RemoveDefaultHandle)
     self.level = logger.INFO  -- Default level
     self.handlers = {}
     if not RemoveDefaultHandle then
-        tinsert(self.handlers,logger.TerminalHandler(Formatter))
+        tinsert(self.handlers,logger.TerminalHandler())
     end
     --- Set the minimum logging level.
     -- @tparam table level The level table (e.g. logger.DEBUG)
