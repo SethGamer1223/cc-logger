@@ -14,14 +14,11 @@ cp -r "$SOURCE_DIR/test" "$COMPUTER_DIR"
 OUTPUT=$(craftos --headless --directory "$DATA_DIR" --exec \
     'shell.run("test/mcfly.lua test"); os.shutdown()' 2>&1)
 
-# Clean up CraftOS-PC terminal control sequences for CI logs
-CLEAN_OUTPUT=$(printf "%s" "$OUTPUT" \
-    | sed 's/\x1B\[[0-9;?]*[a-zA-Z]//g' \
-    | tr -d '\r')
 
-echo "$CLEAN_OUTPUT"
 
-SUMMARY=$(printf "%s\n" "$CLEAN_OUTPUT" \
+echo "$OUTPUT"
+
+SUMMARY=$(printf "%s\n" "$OUTPUT" \
     | grep -E "Ran [0-9]+ test\(s\), of which [0-9]+ passed" \
     | tail -n 1)
 
