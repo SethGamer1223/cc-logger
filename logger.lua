@@ -74,19 +74,25 @@ local defaultFormatter = {
     datefmt = "%Y/%m/%e %H:%M:%S",
     colors = {
         ["DEBUG"] = {
-            ["fg"] = colors.blue
+            ["fg"] = colors.blue,
+            ["discordfg"] = 34
         },
         ["INFO"] = {
-            ["fg"] = colors.white
+            ["fg"] = colors.white,
+            ["discordfg"] = 37
+            
         },
         ["WARNING"] = {
-            ["fg"] = colors.yellow
+            ["fg"] = colors.yellow,
+            ["discordfg"] = 33
         },
         ["ERROR"] = {
-            ["fg"] = colors.red
+            ["fg"] = colors.red,
+            ["discordfg"] = 31
         },
         ["CRITICAL"] = {
-            ["fg"] = colors.purple
+            ["fg"] = colors.purple,
+            ["discordfg"] = 35
         }
     }
 }
@@ -617,6 +623,64 @@ logger.RawModemHandler = function(formatter,modem,channel)
 
     function self:handle(log,extra)
         self.modem.transmit(channel,channel,{log,extra})
+    end
+
+
+    function self:addTo(logger)
+        tinsert(logger.handlers, self)
+    end
+
+    return self
+end
+--TODO improve this so that it can send messages without freezing up logger waiting for return while still sending messages in order.
+--- Handler that sends formatted messages to a Discord webhook.
+-- @tparam[opt] table formatter Custom formatter
+-- @tparam string webhookURL The Discord webhook URL
+-- @tparam mode string|nil "message" (default) sends the formatted message, "user" changes the username to the logger name
+-- @tparam boolean advanced|nil If true, sends the message in a code block with ANSI color codes
+logger.DiscordWebhookHandler = function(formatter,webhookURL,mode,advanced)
+    local self = {}
+    --two modes: message, simply sends the formatted message and user which changes the username to the logger name.
+    self.mode = mode or "message"
+    self.setLevel = setHandlerLevel
+    self.webhookURL = webhookURL    
+    self.advanced = advanced
+
+    self.formatter = formatter or copytemplate(defaultFormatter)
+
+    function self:format(message,extra)
+        if not extra.asctime then extra.asctime = date(self.formatter.datefmt) end
+        local formatted = self.formatter.fmt
+        formatted = formatted:gsub("{message}", tostring(message))
+        for key, value in pairs(extra) do
+            formatted = formatted:gsub("{"..key.."}", tostring(value))
+        end
+        return formatted
+    end
+
+
+    function self:handle(log,extra)
+        local formattedMessage = self:format(log, extra)
+        local data = {
+            content = formattedMessage,
+        }
+        if self.mode == "user" then
+            data.username = extra.loggername 
+        end
+        if self.advanced then
+            local fgColor = tostring(self.formatter.colors[extra.level].discordfg)
+            local colorBuilder = string.format("\27[0;%sm", fgColor)
+            local resetCode = "\27[0m"
+            formattedMessage = "```ansi\n" .. colorBuilder .. formattedMessage .. resetCode .. "\n```"
+            data.content = formattedMessage
+        end
+
+        http.post(
+            self.webhookURL,
+            serializeJSON(data),
+            { ["Content-Type"] = "application/json" }
+        )
+        
     end
 
 

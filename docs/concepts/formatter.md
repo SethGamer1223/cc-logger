@@ -114,18 +114,21 @@ local f3 = logger.Formatter(nil, "%H:%M:%S")          -- default fmt, custom dat
 ## `colors` Table
 
 Every Formatter (including the default prototype) has a `colors` table mapping
-level names to `{fg, bg}` color pairs. Used by [ColoredTerminalHandler](../handlers/colored-terminal.md).
+level names to `{fg, bg}` color pairs. Used by
+[ColoredTerminalHandler](../handlers/colored-terminal.md) (for terminal colors) and
+[DiscordWebhookHandler](../handlers/discord-webhook.md) (for ANSI colors).
 
-| Level      | Foreground          |
-|------------|---------------------|
-| `DEBUG`    | `colors.blue`       |
-| `INFO`     | `colors.white`      |
-| `WARNING`  | `colors.yellow`     |
-| `ERROR`    | `colors.red`        |
-| `CRITICAL` | `colors.purple`     |
+| Level      | Foreground          | `discordfg` (ANSI) |
+|------------|---------------------|--------------------|
+| `DEBUG`    | `colors.blue`       | `34`               |
+| `INFO`     | `colors.white`      | `37`               |
+| `WARNING`  | `colors.yellow`     | `33`               |
+| `ERROR`    | `colors.red`        | `31`               |
+| `CRITICAL` | `colors.purple`     | `35`               |
 
-To customize colors for a single handler, build a new Formatter and override the
-`colors` table:
+The `discordfg` value is an ANSI color code used by `DiscordWebhookHandler` in
+`advanced` mode to tint a message in a Discord code block. To customize colors for a
+single handler, build a new Formatter and override the `colors` table:
 
 ```lua
 local fmt = logger.Formatter()
@@ -139,4 +142,5 @@ fmt.colors = {
 
 - [Architecture](architecture.md)  where formatting fits in the pipeline
 - [ColoredTerminalHandler](../handlers/colored-terminal.md)  the handler that uses `colors`
+- [DiscordWebhookHandler](../handlers/discord-webhook.md)  uses the `discordfg` ANSI codes
 - [Levels](levels.md)  level constants

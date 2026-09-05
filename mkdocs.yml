@@ -39,6 +39,7 @@ nav:
       - TimedRotatingFileHandler: handlers/timed-rotating-file.md
       - WebsocketHandler / RawWebsocketHandler: handlers/websocket.md
       - ModemHandler / RawModemHandler: handlers/modem.md
+      - DiscordWebhookHandler: handlers/discord-webhook.md
       - Writing a Custom Handler: handlers/custom.md
   - API Reference:
       - Logger: api/logger.md

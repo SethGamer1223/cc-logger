@@ -55,6 +55,7 @@ log:error("shown on console AND written to file")
 | `RawWebsocketHandler` | Raw JSON `{msg, extra}` over websocket (no formatter) | [WebsocketHandler](websocket.md) |
 | `ModemHandler` | Formatted string over rednet/modem | [ModemHandler](modem.md) |
 | `RawModemHandler` | Raw `{msg, extra}` table over modem (no formatter) | [ModemHandler](modem.md) |
+| `DiscordWebhookHandler` | Formatted message to a Discord webhook | [DiscordWebhookHandler](discord-webhook.md) |
 
 ## Related
 
