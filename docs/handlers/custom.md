@@ -1,12 +1,13 @@
 # Writing a Custom Handler
 
-A handler just needs three methods to work with `Logger:addHandler()`:
+A handler just needs a few methods to work with `Logger:addHandler()`:
 
 | Method | Signature | Purpose |
 |--------|-----------|---------|
 | `:handle` | `(msg, extra, level)` | Produce output |
 | `:format` | `(msg, extra)` → `string` | Apply template substitution (optional for raw handlers) |
 | `:addTo` | `(logger)` | Register with a logger |
+| `:setLevel` | `(level)` | **Optional** per-handler minimum level; defaults to the logger's level if omitted |
 
 ## Minimal Shape
 
@@ -42,12 +43,31 @@ function MyHandler.new(formatter)
 end
 ```
 
+## Per-Handler Level (optional)
+
+If your handler sets a `level` field (via `:setLevel` or directly), the Logger only
+calls `:handle` for messages at or above that level. Without it, the handler uses the
+logger's level. Add it to the minimal shape like so:
+
+```lua
+function self:setLevel(level)
+    if type(level) == "table" and type(level[1]) == "number" and type(level[2]) == "string" then
+        self.level = level
+        return true
+    end
+    return false
+end
+```
+
+See [Per-Handler Level Filtering](index.md#per-handler-level-filtering) for a worked
+example.
+
 ## Worked Example: Discord Webhook via `http.post`
 
 This handler sends each log line as a Discord embed using an `http.post` request:
 
 ```lua
-local logger = dofile("logger.lua")
+local logger = require("logger.lua")
 
 local DiscordHandler = {}
 

@@ -72,7 +72,9 @@ print(lv[2])  -- "INFO"
 ## `:addHandler(handler)` {: #addhandler}
 
 Register a handler. The handler must implement `:handle(msg, extra, level)`,
-`:format(msg, extra)`, and `:addTo(logger)`.
+`:format(msg, extra)`, and `:addTo(logger)`. It may optionally implement
+`:setLevel(level)` to give it its own minimum threshold instead of inheriting the
+logger's.
 
 | Parameter | Type    | Description             |
 |-----------|---------|-------------------------|
@@ -101,6 +103,10 @@ The method auto-populates these keys in `extra` before processing:
 | `message`    | The raw `msg` string         |
 | `level`      | The level name (e.g. `"INFO"`) |
 | `loggername` | The logger's name            |
+
+A message is only delivered to a handler if its level weight is at or above that
+handler's threshold  the handler's own `:setLevel()` override, or the logger's level
+if the handler has none.
 
 ```lua
 local log = logger.new("custom")

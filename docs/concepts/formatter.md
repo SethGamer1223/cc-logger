@@ -66,7 +66,7 @@ Because the Logger sets `extra.message = msg` before dispatching, the message st
 can itself contain `{tokens}` that reference other extra keys:
 
 ```lua
-local logger = dofile("logger.lua")
+local logger = require("logger.lua")
 local log = logger.new("miner")
 
 log:warn("Fuel critically low: {fuel}", { fuel = 5 })

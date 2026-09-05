@@ -18,7 +18,7 @@ FileHandler(formatter, filename, mode, delay)
 ## Example: Crash Log
 
 ```lua
-local logger = dofile("logger.lua")
+local logger = require("logger.lua")
 
 local fmt = logger.Formatter("{asctime} [{level}] {message}")
 local h = logger.FileHandler(fmt, "crash.log", "a", true)

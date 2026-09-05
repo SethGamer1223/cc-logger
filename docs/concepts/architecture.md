@@ -25,9 +25,10 @@ owns its own **Formatter**. When you call a logging method (e.g. `log:info(...)`
 
 1. `Logger:log()` builds an **extra** table with default keys (`message`, `level`,
    `loggername`).
-2. If the message's level weight is below the logger's threshold, it is dropped
-   immediately.
-3. Otherwise, every handler's `:handle(msg, extra, level)` is called in sequence.
+2. For each handler, the effective threshold is the handler's own `level` if set,
+   otherwise the logger's threshold.
+3. If the message's level weight is below that handler's threshold, the handler is
+   skipped. Otherwise its `:handle(msg, extra, level)` is called in sequence.
 4. Each handler's `:format(msg, extra)` method substitutes `{token}` patterns using the
    extra table and returns a string. The handler then writes or transmits that string.
 
@@ -52,6 +53,9 @@ log:addHandler(fileH)
 log:info("Both handlers fire for this message")
 ```
 
+Each handler may set its own minimum level with `:setLevel()`; by default all handlers
+inherit the logger's level. See [Per-Handler Level Filtering](../handlers/index.md#per-handler-level-filtering).
+
 !!! note "Default handler"
 
     `logger.new()` attaches a default `TerminalHandler(Formatter)` automatically.
@@ -61,8 +65,8 @@ log:info("Both handlers fire for this message")
 
 | Component     | Role | Created By |
 |--------------|------|------------|
-| **Logger**   | Filters by level, dispatches to handlers | `logger.new(name)` |
-| **Handler**  | Receives `(msg, extra, level)`, formats & outputs | `logger.Handler(...)` |
+| **Logger**   | Holds default level, dispatches to handlers | `logger.new(name)` |
+| **Handler**  | Receives `(msg, extra, level)`, formats & outputs; may override level with `:setLevel()` | `logger.Handler(...)` |
 | **Formatter**| Holds template string & date format, does `{token}` substitution | `logger.Formatter(fmt, datefmt)` |
 | **Level**    | A `{weight, name}` table, e.g. `{2, "INFO"}` | `logger.INFO`, etc. |
 

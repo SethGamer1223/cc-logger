@@ -35,6 +35,12 @@ log:error("and this")               -- printed
 
 Returns `true` if the level was valid, `false` otherwise.
 
+!!! tip "Per-handler thresholds"
+
+    Handlers have their own `:setLevel()`. Raising or lowering a handler's level only
+    affects that handler; it does not change `log:getEffectiveLevel()` or
+    `log:isEnabledFor()`. See [Per-Handler Level Filtering](../handlers/index.md#per-handler-level-filtering).
+
 ## `isEnabledFor(level)` {: #isenabledfor}
 
 Check whether a message at the given level would be logged:
@@ -62,25 +68,29 @@ print(lv[2])  -- example "INFO"
 Inside `Logger:log()`:
 
 1. If the level table is invalid, the message is dropped.
-2. If `level[1] < self.level[1]`, the message is dropped.
-3. Otherwise, every handler's `:handle()` is called.
+2. For each handler, the effective threshold is `handler.level` if the handler has one,
+   otherwise the logger's `self.level`.
+3. If the message's weight is below that handler's threshold, the handler is skipped.
+4. Otherwise, the handler's `:handle()` is called.
 
-This means a handler never sees messages below the logger's threshold.
+A handler never sees messages below its own threshold  which defaults to the logger's
+level. You can raise or lower individual handlers independently of the logger:
 
 ```lua
 local logger = require("logger.lua")
 local log = logger.new("demo")
 
-log:setLevel(logger.WARNING)
+local fileH = logger.FileHandler(nil, "debug.log")
+fileH:setLevel(logger.DEBUG)   -- this handler accepts DEBUG and up
+log:addHandler(fileH)
 
--- These produce NO output:
-log:debug("debug")
-log:info("info")
+log:setLevel(logger.WARNING)   -- console handler (default) stays at WARNING
 
--- These DO produce output:
+-- DEBUG goes to debug.log but not the console:
+log:debug("low-level detail")
+
+-- WARNING goes to debug.log AND the console:
 log:warn("warn")
-log:error("error")
-log:critical("critical")
 ```
 
 ## Creating Custom Levels

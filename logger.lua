@@ -60,6 +60,15 @@ local function validLevel(level)
            type(level[2]) == "string"
 end
 
+local function setHandlerLevel(self, level)
+    if validLevel(level) then
+        self.level = level
+        return true
+    else
+        return false
+    end
+end
+
 local defaultFormatter = {
     fmt = "[{loggername}] {asctime} [{level}] {message}",
     datefmt = "%Y/%m/%e %H:%M:%S",
@@ -143,8 +152,9 @@ end
 --- @param formatter table|nil Optional custom formatter object
 --- @param terminal table|nil Optional terminal object (defaults to tcurrent())
 --- @return table Handler object
-logger["TerminalHandler"] = function(formatter,terminal)
+logger.TerminalHandler = function(formatter,terminal)
     local self = {}
+    self.setLevel = setHandlerLevel
     if not terminal then
         self.term = tcurrent()
     else
@@ -182,8 +192,9 @@ end
 --- @param formatter table|nil Optional custom formatter
 --- @param terminal table|nil Optional terminal object
 --- @return table Handler object
-logger["ColoredTerminalHandler"] = function(formatter, terminal)
+logger.ColoredTerminalHandler = function(formatter, terminal)
     local self = {}
+    self.setLevel = setHandlerLevel
 
     self.term = terminal or tcurrent()
     self.formatter = formatter or copytemplate(defaultFormatter)
@@ -232,8 +243,9 @@ end
 --- @param mode string|nil File mode (default "a")
 --- @param delay boolean|nil If true, file is not opened until first log
 --- @return table Handler object
-logger["FileHandler"] = function(formatter,filename,mode,delay)
+logger.FileHandler = function(formatter,filename,mode,delay)
     local self = {}
+    self.setLevel = setHandlerLevel
     assert(type(filename)=="string","Filename must be a string")
     assert(type(mode)=="string" or not mode,"File opening mode must be provided or left nil for default (a)")
     if not mode then
@@ -280,8 +292,9 @@ end
 --- @param mode string|nil File mode
 --- @param delay boolean|nil If true, delays file opening
 --- @return table Handler object
-logger["RotatingFileHandler"] = function(formatter,filename,maxByte,backupCount,mode,delay)
+logger.RotatingFileHandler = function(formatter,filename,maxByte,backupCount,mode,delay)
     local self = {}
+    self.setLevel = setHandlerLevel
     self.length = 0
     assert(type(filename)=="string","Filename must be a string")
     assert(type(mode)=="string" or not mode,"File opening mode must be provided or left nil for default (a)")
@@ -369,7 +382,7 @@ end
 --- @param delay boolean|nil Delay file opening
 --- @param useUTC boolean Use UTC time instead of local
 --- @return table Handler object
-logger["TimedRotatingFileHandler"] = function(
+logger.TimedRotatingFileHandler = function(
     formatter,
     filename,
     when,
@@ -379,6 +392,7 @@ logger["TimedRotatingFileHandler"] = function(
     useUTC
 )
     local self = {}
+    self.setLevel = setHandlerLevel
     assert(type(filename) == "string", "Filename must be a string")
     when = when or "D"
     interval = interval or 1
@@ -501,8 +515,9 @@ logger["TimedRotatingFileHandler"] = function(
     return self
 end
 
-logger["WebsocketHandler"] = function(formatter,websocket)
+logger.WebsocketHandler = function(formatter,websocket)
     local self = {}
+    self.setLevel = setHandlerLevel
     self.websocket = websocket
 
     self.formatter = formatter or copytemplate(defaultFormatter)
@@ -534,8 +549,9 @@ end
 -- Sends a table: {message, extra_data}
 -- @tparam any _ Ignored formatter (raw data uses no template)
 -- @tparam table websocket An established CC websocket object
-logger["RawWebsocketHandler"] = function(formatter,websocket)
+logger.RawWebsocketHandler = function(formatter,websocket)
     local self = {}
+    self.setLevel = setHandlerLevel
     self.websocket = websocket
 
 
@@ -556,8 +572,9 @@ end
 -- @tparam table modem The modem peripheral object
 -- @tparam number channel The channel to transmit on
 
-logger["ModemHandler"] = function(formatter,modem,channel)
+logger.ModemHandler = function(formatter,modem,channel)
     local self = {}
+    self.setLevel = setHandlerLevel
     self.modem = modem
 
     self.formatter = formatter or copytemplate(defaultFormatter)
@@ -591,8 +608,9 @@ end
 -- @tparam any _ Ignored formatter
 -- @tparam table modem The modem peripheral object
 -- @tparam number channel The channel to transmit on
-logger["RawModemHandler"] = function(formatter,modem,channel)
+logger.RawModemHandler = function(formatter,modem,channel)
     local self = {}
+    self.setLevel = setHandlerLevel
     self.modem = modem
 
 
@@ -610,7 +628,7 @@ logger["RawModemHandler"] = function(formatter,modem,channel)
 end
 
 -- Enhanced Formatter implementation
-logger["Formatter"] = function(fmt,datefmt)
+logger.Formatter = function(fmt,datefmt)
     local formatter = copytemplate(defaultFormatter)
     if fmt then formatter.fmt = fmt end
     if datefmt then formatter.datefmt = datefmt end
@@ -621,7 +639,7 @@ end
 -- @tparam[opt] string name Logger name (default "root")
 -- @tparam[opt] boolean RemoveDefaultHandle If true, ignores the default TerminalHandler
 -- @treturn table The logger instance
-logger["new"] = function(name,RemoveDefaultHandle)
+logger.new = function(name,RemoveDefaultHandle)
     local self = setmetatable({}, {__index = logger})
 
     self.name = name or "root"
@@ -674,10 +692,12 @@ logger["new"] = function(name,RemoveDefaultHandle)
         if not extra.level then extra.level = level[2] end
         if not extra.loggername then extra.loggername = self.name end
         if not validLevel(level) then return end
-        if level[1] < self.level[1] then return end
         
         for _,handler in pairs(self.handlers) do
-            handler:handle(msg,extra,level)
+            local effectiveLevel = handler.level or self.level
+            if level[1] >= effectiveLevel[1] then
+                handler:handle(msg,extra,level)
+            end
         end
 
     end

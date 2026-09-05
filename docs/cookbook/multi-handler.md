@@ -51,28 +51,38 @@ local wsFmt = logger.Formatter("{loggername}|{level}|{message}")
 
 ## Separating Levels by Handler
 
-Because handlers don't filter by level (only the Logger does), you can create multiple
-loggers at different levels targeting different outputs:
+Because each handler can have its own minimum level, you can route different severities
+to different outputs on the **same** logger:
 
 ```lua
 local logger = require("logger.lua")
 
--- Errors-only logger for alerts
-local alertLog = logger.new("alert", true)
-alertLog:setLevel(logger.ERROR)
+local log = logger.new("app", true)
+log:setLevel(logger.DEBUG)                -- console sees everything
+
+-- Errors only to the alert file
 local alertFile = logger.FileHandler(nil, "alerts.log")
-alertLog:addHandler(alertFile)
+alertFile:setLevel(logger.ERROR)
+log:addHandler(alertFile)
 
--- Full debug logger for development
-local devLog = logger.new("dev", true)
-devLog:setLevel(logger.DEBUG)
+-- Everything (DEBUG+) to the dev console
 local devConsole = logger.ColoredTerminalHandler()
-devLog:addHandler(devConsole)
+log:addHandler(devConsole)
 
--- Use both in the same program
-alertLog:info("You won't see this in alerts.log")  -- filtered by alertLog's level
-devLog:info("You WILL see this on console")
-alertLog:error("But you WILL see this in alerts.log")
+log:debug("verbose diagnostic")           -- console only
+log:info("normal operation")              -- console only
+log:warn("getting risky")                 -- console only
+log:error("something broke")              -- console AND alerts.log
+log:critical("shutting down")             -- console AND alerts.log
+```
+
+Handlers without a `:setLevel()` call inherit the logger's level. You can also raise
+one handler's threshold while the rest of the logger stays lower:
+
+```lua
+local quiet = logger.FileHandler(nil, "quiet.log")
+quiet:setLevel(logger.CRITICAL)           -- only CRITICAL to this file
+log:addHandler(quiet)
 ```
 
 ## Related
